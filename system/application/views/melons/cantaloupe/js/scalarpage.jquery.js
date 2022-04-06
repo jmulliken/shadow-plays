@@ -44,6 +44,7 @@
             generateIconCache: {},
             mapMarkers: [],
             pendingDeferredScripts: {},
+            usingHypothesis: ($('link#hypothesis').attr('href') === 'true'),
 
             dateParseRegex : /^(?:(?:(?:(\d+)[\/-])?(?:(\d+)[\/-])?)?([-]?\d+)(?:\s+)?(bce|BCE|bc|BC|ad|AD|ce|CE)?)(?:\s+)?((?:(?:[0-1][0-9])|(?:[2][0-3])|(?:[0-9]))(?::(?:[0-5][0-9])(?::[0-5][0-9])?)?(?:\s?(?:am|AM|pm|PM))?)?(?:(?:\s+-\s+)(?:(?:(?:(\d+)[\/-])?(?:(\d+)[\/-])?)?([-]?\d+)(?:\s+)?(bce|BCE|bc|BC|ad|AD|ce|CE)?)(?:\s+)?((?:(?:[0-1][0-9])|(?:[2][0-3])|(?:[0-9]))(?::(?:[0-5][0-9])(?::[0-5][0-9])?)?(?:\s?(?:am|AM|pm|PM))?)?)?$/,
 
@@ -238,12 +239,12 @@
                 var minTabWidth = parseInt(temp.width());
                 temp.remove();
 
-                mediaelement.model.element.find("video").bind("webkitbeginfullscreen", function(e) {
+                mediaelement.model.element.find("video").on("webkitbeginfullscreen", function(e) {
                     page.isFullScreen = true;
                     page.lastOrientation = ((Math.abs(window.orientation) === 90) ? "landscape" : "portrait");
                 });
 
-                mediaelement.model.element.find("video").bind("webkitendfullscreen", function(e) {
+                mediaelement.model.element.find("video").on("webkitendfullscreen", function(e) {
                     page.isFullScreen = false;
                     // if orientation changed while we were full screen, then check to see if media needs to be reformatted
                     var currentOrientation = ((Math.abs(window.orientation) === 90) ? "landscape" : "portrait");
@@ -300,7 +301,7 @@
                     }
 
                     // If the media is smaller than the "small" size, remove tabs below media
-                    if (mediaWidth < minTabWidth) {
+                    if (mediaWidth < minTabWidth && mediaWidth != 0) {
                         mediaelement.model.options.solo = true;
                     }
 
@@ -331,7 +332,6 @@
 
                 // the "solo" option is used when showing media items that don't get media details tabs beneath
 
-
                 if (mediaelement.model.options.solo != true) {
                     if (isFullWidth) {
 
@@ -354,13 +354,6 @@
                         });
 
                     } else {
-
-                        // -- will this ever happen?
-                        // make sure the tags are aligned left with the body copy
-                        // if ( size == "full" ) {
-                        // mediaelement.view.footer.addClass( "body_copy" );
-                        // }
-
                         // add the tabs
                         $.scalarmedia(mediaelement, mediaelement.view.footer, {
                             'shy': (!isMobile && !link.hasClass('media-page-link')),
@@ -381,7 +374,7 @@
                 }
 
                 if($(mediaelement.link).hasClass('wrap')){
-                    if(typeof infoElement != 'undefined'){
+                    if( typeof infoElement != 'undefined' && !isFullWidth){
                         infoElement.addClass('wrapped');
                     }
                     if(isFullWidth){
@@ -403,8 +396,8 @@
                 // make images open the citations view when clicked
                 if (document.location.href.indexOf('.annotation_editor') == -1) {
                     if (!isMobile && mediaelement.model.mediaSource.contentType == 'image') {
-                        mediaelement.model.element.find('.mediaObject').click(function() {
-                            if ($('.media_details').css('display') == 'none') {                                    
+                        mediaelement.model.element.find('.mediaObject').on('click', function() {
+                            if ($('.media_details').css('display') == 'none') {
                                 page.mediaDetails.show(mediaelement.model.node);
                             }
                         }).css('cursor', 'pointer');
@@ -471,6 +464,59 @@
 
             },
 
+            addInlineNoteElementForLink: function(link) {
+
+            	link.wrap('<div class="inlineNoteBody body_copy"></div>');
+            	link.text('Go to note').attr('href', $('link#parent').attr('href')+link.attr('resource'));
+            	var wrapper = link.parent();
+            	var slug = link.attr('resource');
+            	var show = {title:false,description:false,content:true};
+            	if (link.data('show-title') == 'yes') show.title = true;
+            	if (link.data('show-description') == 'yes') show.description = true;
+            	if (link.data('show-content') != 'yes') show.content = false;
+            	var size = link.data('size');
+            	var wrap = link.data('text-wrap');
+            	var align = link.data('align');
+            	wrapper.addClass('size_'+size);
+            	switch (size) {
+            		case "small":
+            			wrapper.css('max-width', '350px');
+            			break;
+            		case "medium":
+            			wrapper.css('max-width', '550px');
+            			break;
+            	}
+            	if (wrap == 'wrap-text-around-media' && size != 'full') {
+            		wrapper.addClass('wrap');
+                	switch (align) {
+	            		case "right":
+	            			wrapper.css('float', 'right');
+	            			break;
+	            		default:
+	            			wrapper.css('float', 'left');
+	            	}
+            	}
+            	scalarapi.loadNode(slug, true, function(node) {
+            		for (uri in node) {
+            			var version_uri = node[uri]['http://purl.org/dc/terms/hasVersion'][0].value;
+            			var version = node[version_uri];
+            			if (show.content && 'undefined' != typeof(version['http://rdfs.org/sioc/ns#content'])) {
+            				var content = version['http://rdfs.org/sioc/ns#content'][0].value;
+            				wrapper.prepend('<div class="content">'+content+'</div>');
+            			};
+            			if (show.description && 'undefined' != typeof(version['http://purl.org/dc/terms/description'])) {
+            				var description = version['http://purl.org/dc/terms/description'][0].value;
+            				wrapper.prepend('<div class="description">'+description+'</div>');
+            			};
+            			if (show.title && 'undefined' != typeof(version['http://purl.org/dc/terms/title'])) {
+            				var title = version['http://purl.org/dc/terms/title'][0].value;
+            				wrapper.prepend('<div class="title">'+title+'</div>');
+            			};
+            			break;
+            		}
+            	});
+            },
+
             addMediaElementForLink: function(link, parent, height, baseOptions) {
 
                 var inline = link.hasClass('inline'),
@@ -507,7 +553,7 @@
                     size = "full";
                     width = page.pageWidth;
                 }
-                
+
                 if (size == 'large' && (align == 'left' || inline)) {
                   // we want 'large' inline or left-aligned media to be as wide as the text
                   width = page.bodyCopyWidth;
@@ -530,15 +576,13 @@
                     } else {
                         options.vcenter = true;
                     }
-                    var parent_temp = $('link#parent').attr('href');
-                    var mediaNode = scalarapi.getNode(parent_temp + link.attr('resource'));
                 }
                 options.size = size;
 
                 // create the slot where the media will be added
                 slot = link.slotmanager_create_slot(width, height, options);
 
-                // if the slot was successfully created,
+                // slot was successfully created
                 if (slot) {
 
                     // hide the media element until we get it fully set up (after its metadata has loaded)
@@ -588,7 +632,11 @@
                     } else if (size != 'full') {
 
                         // put the media before its linking text, and align it appropriately
-                        parent.before(slotDOMElement);
+                    	if (parent.prevAll('.acc').length) {  // an assist to some custom JS ~Craig
+                    		parent.prevAll('.acc').eq(0).before(slotDOMElement);
+                    	} else {
+                    		parent.before(slotDOMElement);
+                    	};
                         slotDOMElement.addClass(align);
 
                         // if this is the top-most linked media, then align it with the top of its paragraph
@@ -657,8 +705,8 @@
                         contextCount = 0;
 
                     $('.context.popover').remove();
-     
-                    relations = currentNode.getRelations('referee', 'incoming'); 
+
+                    relations = currentNode.getRelations('reference', 'incoming');
                     for (i in relations) {
                         relation = relations[i];
                         if (relation.body.current.content != null) {
@@ -676,7 +724,7 @@
                             contextCount++;
                         }
                     }
-                    
+
                     // show containing paths
                     relations = currentNode.getRelations('path', 'incoming', 'index');
                     for (i in relations) {
@@ -684,7 +732,7 @@
                         contextCount++;
                         contextMarkup += '<p class="citation"><a href="' + currentNode.url + '?path=' + relation.body.slug + '">Step ' + relation.index + '</a> of the <a href="' + relation.body.url + '">&ldquo;' + relation.body.getDisplayTitle() + '&rdquo;</a> path</p>';
                     }
-                    
+
                     // show tags
                     relations = currentNode.getRelations('tag', 'incoming');
                     for (i in relations) {
@@ -693,6 +741,8 @@
                         contextMarkup += '<p class="citation">Tagged by <a href="' + relation.body.url + '">&ldquo;' + relation.body.getDisplayTitle() + '&rdquo;</a></p>';
                     }
 
+                    contextMarkup += '<p><a id="visualize-this-link" href="javascript:;" class="btn btn-default btn-xs">Visualize...</a></p>';
+
                     $(".path-nav.info").remove();
                     if (contextMarkup != '') {
                         contextMarkup = '<div class="citations">' + contextMarkup + '</div>';
@@ -700,14 +750,53 @@
                         if (contextCount > 1) {
                             contextButton.addClass('multi');
                         }
+                        if (page.usingHypothesis) {
+                        	contextButton.addClass('hypothesis_active');
+                        }
                         contextButton.popover({
                             trigger: "click",
                             html: true,
                             content: contextMarkup,
-                            template: '<div class="context popover caption_font" role="tooltip"><div class="arrow"></div><h3 class="popover-title"></h3><div class="popover-content"></div>' });
-
+                            template: '<div class="context popover caption_font" role="tooltip"><div class="arrow"></div><h3 class="popover-title"></h3><div class="popover-content"></div>' }).on('inserted.bs.popover', function() {
+                              $('#visualize-this-link').on('click', function() {
+                                contextButton.popover('hide');
+                                page.visualizeCurrentPage();
+                              });
+                            });
                     }
                 }
+            },
+
+            visualizeCurrentPage: function() {
+              var options = {
+                modal: true
+              }
+              let currentNode = scalarapi.model.getCurrentPageNode();
+              options.content = 'lens';
+              options.lens = {
+                "visualization": {
+                  "type": "force-directed",
+                  "options": {}
+                },
+                "components": [
+                  {
+                    "content-selector": {
+                      "type": "specific-items",
+                      "items": [ currentNode.slug ]
+                    },
+                    "modifiers": [
+                      {
+                        "type": "filter",
+                        "subtype": "relationship",
+                        "content-types": ["all-types"],
+                        "relationship": "any-relationship"
+                      }
+                    ]
+                  }
+                ],
+                "sorts": []
+              }
+              $( '.modalVisualization' ).data( 'scalarvis' ).showModal( options );
             },
 
             allowAnyClickToDismissPopovers: function() {
@@ -715,7 +804,7 @@
                     $('[data-toggle="popover"],[data-original-title]').each(function () {
                         //the 'is' for buttons that trigger popups
                         //the 'has' for icons within a button that triggers a popup
-                        if (!$(this).is(e.target) && $(this).has(e.target).length === 0 && $('.popover').has(e.target).length === 0) {                
+                        if (!$(this).is(e.target) && $(this).has(e.target).length === 0 && $('.popover').has(e.target).length === 0) {
                             (($(this).popover('hide').data('bs.popover')||{}).inState||{}).click = false  // fix for BS 3.3.6
                         }
 
@@ -724,8 +813,8 @@
             },
 
             addHeaderPathInfo: function() {
-
                 // show containing path in header
+                $('.path-breadcrumb').remove();
                 if (page.containingPaths.length > 0) {
                     if (page.containingPathNodes.length > 1) {
                         $('h1[property="dcterms:title"]').before('<div class="caption_font path-breadcrumb"><a href="' + page.containingPath.url + '">' + page.containingPath.getDisplayTitle() + '</a> (' + (page.containingPathIndex + 1) + '/' + page.containingPathNodes.length + ')</div>');
@@ -733,7 +822,6 @@
                         $('h1[property="dcterms:title"]').before('<div class="caption_font path-breadcrumb"><a href="' + page.containingPath.url + '">' + page.containingPath.getDisplayTitle() + '</a></div>');
                     }
                 }
-
             },
 
             addPathButton: function(direction, destinationNode, pathNode, isEndOfPath) {
@@ -842,184 +930,49 @@
                     }
                 });
 
-
                 // path back/continue buttons
-                // CB: If a path has more than 0 pages and has a lateral navigation ....
                 if ((page.containingPaths.length > 0) && options.showLateralNav) {
                     section = $('<section class="relationships"></section>');
 
                     //page.addPathButton('up', page.containingPath, page.containingPath);
-                    // CB: If a page has a path with more than 1 page ...
+
 					if (page.containingPathNodes.length > 1) {
-                        console.log("there are " + page.containingPathNodes.length + " pages in this chapter");
-                        // CB: If a page is not the last page on a path
                         if (page.containingPathIndex < (page.containingPathNodes.length - 1)) {
-                        console.log("THIS IS NOT THE LAST PAGE IN THE CHAPTER");
-                        console.log("page.containingPathIndex is " + page.containingPathIndex);
 
                             // This option is on the current path or we don't know what path we're on
                             if ((foundQueryPath && (page.containingPath.slug == queryVars.path)) || !foundQueryPath) {
 
                                 var continueVerbage;
-                                var backVerbage; // CB
-                                var articleContent = $('article.page > span');
                                 if (pathOptionCount == 0) {
                                     continueVerbage = "Continue to ";
-                                    backVerbage = "Go back to "; // CB
                                 } else {
-                                    continueVerbage = "Or, continue to ";
-                                    backVerbage = "Or, go back to "; // CB
+                                    continueVerbage = "Or, continue to "
                                 }
 
                                 // continue button
                                 links = $('<p></p>');
-                                // var continue_button = $('<a class="continue_btn nav_btn" href="' + page.containingPathNodes[page.containingPathIndex + 1].url +
-                                //     '?path=' + page.containingPath.slug + '">' + continueVerbage + '&ldquo;' + page.containingPathNodes[page.containingPathIndex + 1].getDisplayTitle() +
-                                //     '&rdquo;</a>').appendTo(links);
-                                // if (pathOptionCount == 0) {
-                                //     continue_button.addClass('primary');
-                                // }
-                                // var nextNodeOnPath = page.containingPathNodes[page.containingPathIndex + 1];
-                                // page.addPathButton('right', nextNodeOnPath, page.containingPath);
-                                setTimeout(function() { // CB
-                                    // CB: If a page comes before a further insights page, the continue button should skip over the following page on the path
-                                    var nextIndexOnPath = 1;
-                                    if ( $(articleContent).hasClass('pre-fi') ) {
-                                        nextIndexOnPath = 2;
-                                        console.log("this page comes before a further insights page");
+                                var continue_button = $('<a class="continue_btn nav_btn" href="' + page.containingPathNodes[page.containingPathIndex + 1].url +
+                                    '?path=' + page.containingPath.slug + '">' + continueVerbage + '&ldquo;' + page.containingPathNodes[page.containingPathIndex + 1].getDisplayTitle() +
+                                    '&rdquo;</a>').appendTo(links);
+                                if (pathOptionCount == 0) {
+                                    continue_button.addClass('primary');
+                                }
+                          		var nextNodeOnPath = page.containingPathNodes[page.containingPathIndex + 1];
+                          		page.addPathButton('right', nextNodeOnPath, page.containingPath);
 
-                                        // var continue_button = $('<a class="continue_btn nav_btn" href="' + page.containingPathNodes[page.containingPathIndex + 2].url +
-                                        //     '?path=' + page.containingPath.slug + '">' + continueVerbage + '&ldquo;' + page.containingPathNodes[page.containingPathIndex + 2].getDisplayTitle() +
-                                        //     '&rdquo;</a>').appendTo(links);
-                                        // if (pathOptionCount == 0) {
-                                        //     console.log("pathOptionCount is " + pathOptionCount);
-                                        //     continue_button.addClass('primary');
-                                        // }
-                                        // var nextNodeOnPath = page.containingPathNodes[page.containingPathIndex + 2];
-                                        // page.addPathButton('right', nextNodeOnPath, page.containingPath);
-                                    }
-                                    // CB: Otherwise, if a page does not come before a further insights page, the continue button should go to the following page on the path 
-                                    else {
-                                        console.log("this page does NOT come before a further insights page");
-                                        // var continue_button = $('<a class="continue_btn nav_btn" href="' + page.containingPathNodes[page.containingPathIndex + 1].url +
-                                        //     '?path=' + page.containingPath.slug + '">' + continueVerbage + '&ldquo;' + page.containingPathNodes[page.containingPathIndex + 1].getDisplayTitle() +
-                                        //     '&rdquo;</a>').appendTo(links);
-                                        // if (pathOptionCount == 0) {
-                                        //     continue_button.addClass('primary');
-                                        // }
-                                        // var nextNodeOnPath = page.containingPathNodes[page.containingPathIndex + 1];
-                                        // page.addPathButton('right', nextNodeOnPath, page.containingPath);
-                                    }
-                                    var continue_button = $('<a class="continue_btn nav_btn" href="' + page.containingPathNodes[page.containingPathIndex + nextIndexOnPath].url +
-                                            '?path=' + page.containingPath.slug + '">' + continueVerbage + '&ldquo;' + page.containingPathNodes[page.containingPathIndex + nextIndexOnPath].getDisplayTitle() +
-                                            '&rdquo;</a>').appendTo(links);
-                                        if (pathOptionCount == 0) {
-                                            console.log("pathOptionCount is " + pathOptionCount);
-                                            continue_button.addClass('primary');
-                                        }
-                                        var nextNodeOnPath = page.containingPathNodes[page.containingPathIndex + nextIndexOnPath];
-                                        page.addPathButton('right', nextNodeOnPath, page.containingPath);
-                                }, 1000);
- 
                                 // back button
-                                // if (page.containingPathIndex > 0) {
-                                //     var back_button = $('<a id="back-btn" class="nav_btn bordered" href="' + page.containingPathNodes[page.containingPathIndex - 1].url + '?path=' + page.containingPath.slug + '">&laquo;</a> ').prependTo(links);
-                                // }
-                                // CB back button
-                                // CB: If a page is not the first page on a path
-                                if ((page.containingPathIndex > 0) && (page.containingPathIndex < page.containingPathNodes.length - 1)) {
-                                    setTimeout(function() { // CB
-                                        var prevIndexOnPath = 1;
-                                        console.log("prevIndexOnPath is " + prevIndexOnPath);
-                                        // CB: If a page comes after a further insights page ...
-                                        if ( $(articleContent).hasClass('post-fi') ) {
-                                            console.log("this page in the middle of a chapter comes after a further insights page");
-                                            prevIndexOnPath = 2;
-                                            console.log("prevIndexOnPath is " + prevIndexOnPath);
-                                            // var back_button = $('<a id="back-btn" class="nav_btn" href="' + page.containingPathNodes[page.containingPathIndex - 2].url + 
-                                            // '?path=' + page.containingPath.slug + '">' + backVerbage + '&ldquo;' + page.containingPathNodes[page.containingPathIndex - 2].getDisplayTitle() + 
-                                            // '&rdquo;</a>').prependTo(links);
-                                            var back_button = $('<a id="back-btn" class="nav_btn" href="' + page.containingPathNodes[page.containingPathIndex - prevIndexOnPath].url + 
-                                            '?path=' + page.containingPath.slug + '">' + backVerbage + '&ldquo;' + page.containingPathNodes[page.containingPathIndex - prevIndexOnPath].getDisplayTitle() + 
-                                            '&rdquo;</a>').prependTo(links);
-                                            console.log("page.containingPathNodes is " + page.containingPathNodes);
-                                            console.log("page.containingPathIndex is " + page.containingPathIndex);
-                                            console.log("prevIndexOnPath is " + prevIndexOnPath);
-                                            console.log("page.containingPath.slug is " + page.containingPath.slug); 
-                                            console.log("backVerbage is " + backVerbage); 
-                                            console.log("final button language is " + page.containingPathNodes[page.containingPathIndex - prevIndexOnPath].getDisplayTitle());                                       
-                                        }
-                                        else {
-                                            console.log("this page somewhere in the middle of the chapter does not come after a further insights page");
-                                            console.log("prevIndexOnPath is " + prevIndexOnPath);
-                                            // var back_button = $('<a id="back-btn" class="nav_btn" href="' + page.containingPathNodes[page.containingPathIndex - 1].url + 
-                                            // '?path=' + page.containingPath.slug + '">' + backVerbage + '&ldquo;' + page.containingPathNodes[page.containingPathIndex - 1].getDisplayTitle() + 
-                                            // '&rdquo;</a>').prependTo(links);
-                                            var back_button = $('<a id="back-btn" class="nav_btn" href="' + page.containingPathNodes[page.containingPathIndex - prevIndexOnPath].url + 
-                                            '?path=' + page.containingPath.slug + '">' + backVerbage + '&ldquo;' + page.containingPathNodes[page.containingPathIndex - prevIndexOnPath].getDisplayTitle() + 
-                                            '&rdquo;</a>').prependTo(links); 
-                                        }
-                                        // var back_button = $('<a id="back-btn" class="nav_btn" href="' + page.containingPathNodes[page.containingPathIndex - prevIndexOnPath].url + 
-                                        // '?path=' + page.containingPath.slug + '">' + backVerbage + '&ldquo;' + page.containingPathNodes[page.containingPathIndex - prevIndexOnPath].getDisplayTitle() + 
-                                        // '&rdquo;</a>').prependTo(links); 
-                                    }, 1000);
+                                if (page.containingPathIndex > 0) {
+                                    var back_button = $('<a id="back-btn" class="nav_btn bordered" href="' + page.containingPathNodes[page.containingPathIndex - 1].url + '?path=' + page.containingPath.slug + '">&laquo;</a> ').prependTo(links);
                                 }
 
                                 section.append(links);
-                                console.log("AM I EXECUTING???");
                             }
                             pathOptionCount++;
-                            console.log("pathOptionCount is " + pathOptionCount);
                             containingPathOptionCount++;
-                            console.log("containingPathOptionCount is " + containingPathOptionCount);
 
-                        // } else if (page.containingPathIndex == (page.containingPathNodes.length - 1)) {
-                        //     section.append('<p><a id="back-btn" class="nav_btn" href="' + page.containingPathNodes[page.containingPathIndex - 1].url + '?path=' + page.containingPath.slug + '">&laquo; Back to &ldquo;' + page.containingPathNodes[page.containingPathIndex - 1].getDisplayTitle() + '&rdquo;</a></p>');
-                        // }
-
-                        // CB Last Back Button in a Chapter
-                        // CB: If a page is the last page on a path ...
                         } else if (page.containingPathIndex == (page.containingPathNodes.length - 1)) {
-                            console.log("THIS IS THE LAST PAGE IN THE CHAPTER");
-                            // CB: If we're in chapter 1 ... 
-                            if (page.containingPath.slug == 'chapter-1') {
-                                console.log("we are in " + page.containingPath.slug);
-                                var prevIndexOnPath = 2;
-                                section.append('<p><a id="back-btn" class="nav_btn" href="' + page.containingPathNodes[page.containingPathIndex - prevIndexOnPath].url + '?path=' + page.containingPath.slug + '">&laquo; Back to &ldquo;' + page.containingPathNodes[page.containingPathIndex - prevIndexOnPath].getDisplayTitle() + '&rdquo;</a></p>');
-                                                
-                                                var myTempFutureIndex = page.containingPathNodes[page.containingPathIndex - prevIndexOnPath];
-                                                console.log("I want to go back to index " + myTempFutureIndex);
-                                                console.log("The url I want to go back to is " + page.containingPathNodes[page.containingPathIndex - prevIndexOnPath].url);
-                                                var myTempCurrentIndex = page.containingPathNodes[page.containingPathIndex];
-                                                console.log("I am currently on index " + myTempCurrentIndex);
-                                                console.log("I want to go back " + prevIndexOnPath + " pages");
-                                                // console.log("backVerbage is " + backVerbage); 
-                                                console.log("final button language is " + page.containingPathNodes[page.containingPathIndex - prevIndexOnPath].getDisplayTitle());                                       
-                                            
-                            }
-                            else if (page.containingPath.slug == 'chapter-6') {
-                                console.log("we are in " + page.containingPath.slug);
-                                var prevIndexOnPath = 1;
-                                section.append('<p><a id="back-btn" class="nav_btn" href="' + page.containingPathNodes[page.containingPathIndex - prevIndexOnPath].url + '?path=' + page.containingPath.slug + '">&laquo; Back to &ldquo;' + page.containingPathNodes[page.containingPathIndex - prevIndexOnPath].getDisplayTitle() + '&rdquo;</a></p>');
-                                                
-                                                var myTempFutureIndex = page.containingPathNodes[page.containingPathIndex - prevIndexOnPath];
-                                                console.log("I want to go back to index " + myTempFutureIndex);
-                                                console.log("The url I want to go back to is " + page.containingPathNodes[page.containingPathIndex - prevIndexOnPath].url);
-                                                var myTempCurrentIndex = page.containingPathNodes[page.containingPathIndex];
-                                                console.log("I am currently on index " + myTempCurrentIndex);
-                                                console.log("I want to go back " + prevIndexOnPath + " pages");
-                                                // console.log("backVerbage is " + backVerbage); 
-                                                console.log("final button language is " + page.containingPathNodes[page.containingPathIndex - prevIndexOnPath].getDisplayTitle());                                       
-                                            
-                            }
-                            else {
-                                myNum = 1;
-                                section.append('<p><a id="back-btn" class="nav_btn" href="' + page.containingPathNodes[page.containingPathIndex - myNum].url + '?path=' + page.containingPath.slug + '">&laquo; Back to &ldquo;' + page.containingPathNodes[page.containingPathIndex - myNum].getDisplayTitle() + '&rdquo;</a></p>');                       
-                                console.log("this isn't chapter 1")
-                            }
+                            section.append('<p><a id="back-btn" class="nav_btn" href="' + page.containingPathNodes[page.containingPathIndex - 1].url + '?path=' + page.containingPath.slug + '">&laquo; Back to &ldquo;' + page.containingPathNodes[page.containingPathIndex - 1].getDisplayTitle() + '&rdquo;</a></p>');
                         }
-                        console.log("pathOptionCount is " + pathOptionCount);
-                        // CB: If this is not the first page in the path...
                         if (page.containingPathIndex > 0) {
                         	var prevNodeOnPath = page.containingPathNodes[page.containingPathIndex - 1];
                         	page.addPathButton('left', prevNodeOnPath, page.containingPath);
@@ -1038,14 +991,12 @@
                         span.hide();
                         link = span.find('span[property="dcterms:title"] > a');
                         node = scalarapi.getNode(link.attr('href'));
-                        // CB: If path has more than 1 page AND the current page is the last page of the path...
                         if ((page.containingPathNodes.length > 0) && (page.containingPathNodes.indexOf(currentNode) == (page.containingPathNodes.length - 1))) {
                             section = $('<section class="relationships"></section>');
                             $("#footer").before(section);
                             links = $('<p></p>');
 
                             var continuePhrase = "Continue to";
-                            var backPhrase = "Go back to "; // CB
                             // if the "continue to" node is also the path we're on, then say "return" instead of "continue'"
                             if (foundQueryPath && (page.containingPath.slug == queryVars.path) && (page.containingPath == node)) {
                                 continuePhrase = "Return to";
@@ -1060,34 +1011,10 @@
                             // back button
                             var back_button = null;
 
-                            // if (page.containingPathIndex > 0) {
-                            //     $('#back-btn').parents('section').remove(); // remove the intra-path back button and its enclosing section
-                            //     back_button = $('<a id="back-btn" class="nav_btn" href="' + page.containingPathNodes[page.containingPathIndex - 1].url + '?path=' + page.containingPath.slug + '">&laquo;</a> ').prependTo(links);
-                            // }
-
-                            // CB: If the current page is not the first page of the path...
                             if (page.containingPathIndex > 0) {
-                                // CB: If we're in chapter 6
-                                if (page.containingPath.slug == 'chapter-6') {
-                                    console.log ("WE ARE ON THE LAST PAGE IN CHAPTER 6");
-                                    $('#back-btn').parents('section').remove(); // remove the intra-path back button and its enclosing section
-                                    //back_button = $('<a id="back-btn" class="nav_btn" href="' + page.containingPathNodes[page.containingPathIndex - 1].url + '?path=' + page.containingPath.slug + '">' + backPhrase + '&ldquo;' + page.containingPathNodes[page.containingPathIndex - 1].getDisplayTitle() + '&rdquo;</a>').prependTo(links);
-                                    var prevIndexOnPath = 1;
-                                    back_button = $('<a id="back-btn" class="nav_btn" href="' + page.containingPathNodes[page.containingPathIndex - prevIndexOnPath].url + '?path=' + page.containingPath.slug + '">' + backPhrase + '&ldquo;' + page.containingPathNodes[page.containingPathIndex - prevIndexOnPath].getDisplayTitle() + '&rdquo;</a>').prependTo(links);
-
-                                    //<a id="back-btn" class="nav_btn" href="' + page.containingPathNodes[page.containingPathIndex - prevIndexOnPath].url + '?path=' + page.containingPath.slug + '">&laquo; Back to &ldquo;' + page.containingPathNodes[page.containingPathIndex - prevIndexOnPath].getDisplayTitle() + '&rdquo;</a></p>');
-                                } 
-                                // CB    
-                                else {
-                                    $('#back-btn').parents('section').remove(); // remove the intra-path back button and its enclosing section
-                                    //back_button = $('<a id="back-btn" class="nav_btn" href="' + page.containingPathNodes[page.containingPathIndex - 1].url + '?path=' + page.containingPath.slug + '">' + backPhrase + '&ldquo;' + page.containingPathNodes[page.containingPathIndex - 1].getDisplayTitle() + '&rdquo;</a>').prependTo(links);
-                                    var prevIndexOnPath = 2;
-                                    back_button = $('<a id="back-btn" class="nav_btn" href="' + page.containingPathNodes[page.containingPathIndex - prevIndexOnPath].url + '?path=' + page.containingPath.slug + '">' + backPhrase + '&ldquo;' + page.containingPathNodes[page.containingPathIndex - prevIndexOnPath].getDisplayTitle() + '&rdquo;</a>').prependTo(links);
-
-                                    //<a id="back-btn" class="nav_btn" href="' + page.containingPathNodes[page.containingPathIndex - prevIndexOnPath].url + '?path=' + page.containingPath.slug + '">&laquo; Back to &ldquo;' + page.containingPathNodes[page.containingPathIndex - prevIndexOnPath].getDisplayTitle() + '&rdquo;</a></p>');
-                                }              
+                                $('#back-btn').parents('section').remove(); // remove the intra-path back button and its enclosing section
+                                back_button = $('<a id="back-btn" class="nav_btn bordered" href="' + page.containingPathNodes[page.containingPathIndex - 1].url + '?path=' + page.containingPath.slug + '">&laquo;</a> ').prependTo(links);
                             }
-
                             section.append(links);
 
                             pathOptionCount++;
@@ -1108,43 +1035,36 @@
                 var cont_btn = $('.relationships .nav_btn.primary');
                 var back_btn = cont_btn.parent().children('#back-btn');
                 if (!options.isCentered) {
-                	console.log("!options is centered");
                     if (cont_btn.length !== 0) {
-                    	console.log("relationships .nav_btn.primary exists");
                         if (back_btn.length !== 0) {
-                        	console.log("relationships .nav_btn.primary parent then child #back-btn exists");
                             cont_btn.parent().addClass('container');
-                            console.log("adding container class to .relationships .nav_btn.primary parent");
                             back_btn.wrap('<div style="padding:0;width:initial;text-align:center" class="col-md-1 col-xs-1"></div>');
-                            console.log("adding div wrapper around back button");
                             cont_btn.wrap('<div style="padding:0;" class="col-md-5 col-xs-9"></div>');
-                            console.log("adding div wrapper around continue button");
-                        } else {
-                        	console.log("we are at the beginning of a chapter");
                         }
-                    } else {
-                    	console.log("we haven't reached the end of the chapter");
                     }
                 } else {
                     back_btn.css('float', '');
-                    console.log(".relationships .nav_btn.primary doesn't exist");
                 }
 
                 setTimeout(function() {
-                    var cont_btn = $('.relationships .nav_btn.primary');
-                    var back_btn = cont_btn.parent().children('#back-btn');
-                    var temp = (back_btn.parent().parent().height() - back_btn.height()) / 2;
-                    back_btn.css('padding-top', temp);
-                    back_btn.css('padding-bottom', temp);
-                    back_btn.css('vertical-align', 'top');
-                    back_btn.css('height', '');
+                    var back_btn = $('#back-btn');
+                    if (back_btn.length > 0) {
+                        var cont_btn = back_btn.parent().parent().find('.nav_btn').last();
+                        if (cont_btn.length > 0) {
+                            var temp = (back_btn.parent().parent().height() - back_btn.height()) / 2;
+                            back_btn.css('padding-top', temp);
+                            back_btn.css('padding-bottom', temp);
+                            back_btn.css('vertical-align', 'top');
+                            back_btn.css('height', '');
+                        }
+                    }
                 }, 10);
 
                 //Fix back button height on resize
-                $(window).resize(function() {
+                $(window).on('resize', function() {
                     var back_btn = $('#back-btn');
                     if (back_btn.length > 0) {
-                        var cont_btn = back_btn.parent().parent().find('.nav_btn.primary');
+                        var cont_btn = back_btn.parent().parent().find('.nav_btn').last();
                         if (cont_btn.length > 0) {
                             back_btn.css('padding-top', 0);
                             back_btn.css('padding-bottom', 0);
@@ -1172,14 +1092,6 @@
                             if (!options.showLists) {
                                 section.find('h1').hide();
                                 section.find('ul').hide();
-                            }
-
-                            // "visit random" button
-                            if ((pathOptionCount == 0) && options.showChildNav) {
-                                nodes = currentNode.getRelatedNodes('tag', 'outgoing');
-                                if (nodes.length > 1) {
-                                    section.append('<p><a class="nav_btn" href="' + nodes[Math.floor(Math.random() * nodes.length)].url + '?tag=' + currentNode.slug + '">Visit a random tagged page</a></p>');
-                                }
                             }
                         }
                     });
@@ -1232,24 +1144,19 @@
                     });
                 }
 
-                // show items that tag this page
+                // show items that tag and reference this page
                 if (options.showParentNav) {
                     var hasTags = $(".has_tags");
                     if (hasTags.children().length > 0) {
                         hasTags.siblings('h1').text('This ' + selfType + ' is tagged by:');
                         $(".relationships").eq(0).before(hasTags.parent());
-                        hasTags.parent().addClass('relationships').show(); 
+                        hasTags.parent().addClass('relationships').show();
                     };
-                    var noteOf = $('.has_reference').find('[typeof="scalar:Composite"]');  // Right now Scalar logs media links and class="note", so assume that a relationship to a page is a note
-                    if (noteOf.length) {
-                    	noteOf.closest('.has_reference').find('li').hide();
-                    	noteOf.closest('.has_reference').contents().unwrap().wrapAll('<ul class="has_reference"></ul>');
-                    	noteOf.closest('.has_reference').siblings('h1').text('This ' + selfType + ' is a note in:');
-                   	 	$(".relationships").eq(0).before($(this).closest('.has_reference').parent());
-                   	 	noteOf.closest('.has_reference').parent().addClass('relationships').show(); 
-	                    noteOf.each(function() {
-	                    	$(this).closest('li').show();
-	                    });
+                    var hasReferences = $(".has_reference");
+                    if (hasReferences.children().length > 0) {
+                    	var is_composite = (-1 == $('link#primary_role').attr('href').indexOf('Media')) ? true : false;
+                    	hasReferences.siblings('h1').text('This ' + selfType + ' is '+((is_composite)?'a note in':'referenced by')+':');
+                    	hasReferences.parent().addClass('relationships').show();
                     };
                 }
 
@@ -1296,7 +1203,7 @@
                 $('#footer').before('<div id="incoming_comments" class="caption_font"><div id="comment_control" class="reply_link"><strong>' + ((comments.length > 0) ? comments.length : '&nbsp;') + '</strong></div></div>');
                 var commentDialogElement = $('<div></div>').appendTo('body');
                 commentDialog = commentDialogElement.scalarcomments({ root_url: modules_uri + '/cantaloupe' });
-                $('.reply_link').click(function() {
+                $('.reply_link').on('click', function() {
                     commentDialog.data('plugin_scalarcomments').showComments();
                 });
                 var queryVars = scalarapi.getQueryVars(document.location.href);
@@ -1305,25 +1212,189 @@
                 }
             },
 
+            addTKLabels: function() {
+            	// Cosmetics but only if TK Labels are turned on for this book
+            	if ('undefined' == typeof(window['tklabels'])) return;
+            	var $labels = $('article header [typeof="tk:TKLabel"]');
+            	$labels.last().addClass('last');
+            	if (!$labels.length) {
+            		$('<div class="tklabels"></div>').insertBefore('article header h1:first');
+            	} else if (!$labels.parent('.tklabels').length) {
+	            	$labels.wrapAll('<div class="tklabels"></div>');
+            	};
+            	// Add a quick edit feature if logged in
+	            var user_level = ($('link#user_level').length) ? $('link#user_level').attr('href').toLowerCase() : '';
+	            if (-1!=user_level.indexOf('editor')||-1!=user_level.indexOf('author')) {
+	            	var $wrapper = $('article header .tklabels');
+	            	$wrapper.append('<div id="tk-add" title="Update TK Labels for this page" '+((!$labels.length)?'class="desciptor"':'')+'></div>');
+	            	$.getScript($('link#approot').attr('href')+'views/widgets/edit/jquery.add_metadata.js');
+	            	$.getScript($('link#approot').attr('href')+'views/melons/cantaloupe/js/bootbox.min.js');
+	            	$wrapper.find('#tk-add').on('click', function() {
+	            		var data = [];
+	            		$wrapper.children('[typeof="tk:TKLabel"]').each(function() {
+	            			var pnode = $(this).attr('resource').replace('http://localcontexts.org/tk/','tk:');
+	            			data.push(pnode);
+	            		});
+	            		var scope = 'book';
+	            		var ontologies_url = $('link#approot').attr('href').replace('/system/application/','')+'/system/ontologies';
+	            		var tklabels = ('undefined' != typeof(window['tklabels'])) ? window['tklabels'] : null;
+	            		var $blank = $('<div style="display:none;"></div>').appendTo('body');
+	            		$blank.add_metadata({title:'Update TK Labels',ontologies_url:ontologies_url,tklabels:tklabels,scope:scope,active:'tk',active_only:true,add_fields_btn_text:'Update Labels',data:data,callback:function() {
+	            			var selected = [];
+	            			$blank.find('input[value]').each(function() {
+	            				selected.push($(this).attr('value'));
+	            			});
+	            			$wrapper.empty();
+	            			for (var j = 0; j < selected.length; j++) {
+	            				for (var k = 0; k < window['tklabels'].labels.length; k++) {
+	            					if ('tk:'+window['tklabels'].labels[k].code == selected[j]) {
+			            				var url = window['tklabels'].labels[k].image;
+			            				var title = window['tklabels'].labels[k].text.property1.description;
+			            				var description = window['tklabels'].labels[k].text.property2.description;
+				           				var label_template = '';
+				           				label_template += '<span resource="'+selected[j].replace('tk:','http://localcontexts.org/tk/')+'" typeof="tk:TKLabel">';
+				           				label_template += '<a class="metadata" aria-hidden="true" rel="art:url" href="'+url+'"></a>';
+				           				label_template += '<span class="metadata" aria-hidden="true" property="dcterms:title">'+title+'</span>';
+				           				label_template += '<span class="metadata" aria-hidden="true" property="dcterms:description">'+description+'</span>';
+				           				label_template += '</span>';
+				           				$wrapper.append(label_template);
+	            					};
+	            				};
+	            			};
+	            			page.addTKLabels();
+	            			var version_urn = $('link#urn').attr('href');
+	            			var version_id = version_urn.substr(version_urn.lastIndexOf(':')+1);
+	            			var url = $('link#approot').attr('href').replace('system/application/','')+'system/api/save_tklabels';
+	            			$wrapper.find('#tk-add').addClass('bg-warning');
+	            			$.post(url, {version_id:version_id,'tk:hasLabel':selected},function(data) {
+	            				if ('undefined' != typeof(data.error) && data.error.length) {
+	            					alert('There was an error attempting to save TK Labels: '+data.error);
+	            				}
+	            				$wrapper.find('#tk-add').removeClass('bg-warning');
+	            			},'json');
+	            		}});
+	            	});
+	            };
+	            // Info popup about each label
+            	var popover_template = '<div class="popover tk-help caption_font" role="tooltip"><div class="arrow"></div><div class="popover-content"></div></div>';
+            	$labels.each(function() {
+            		var $label = $(this);
+                $label.parent().prepend($label);
+            		$label.css('display', 'inline-block');
+            		var $url = $label.find('a[rel="art:url"]');
+            		var url = $url.attr('href');
+            		$url.replaceWith('<img tabindex="0" rel="art:url" src="'+url+'" data-toggle="popover" data-placement="bottom" />');
+                $label.find('img').popover( {
+                  trigger: "manual focus",
+                  html: true,
+                  template: popover_template,
+                  container: 'body',
+                  content: '<img src="'+url+'" /><p class="supertitle">Traditional Knowledge</p><h3 class="heading_weight">'+$label.find('[property="dcterms:title"]').text()+'</h3><p>'+$label.find('[property="dcterms:description"]').text()+'</p><p><a href="http://localcontexts.org/tk-labels/" target="_blank">More about Traditional Knowledge labels</a></p>'
+                });
+								$label.find('img').click(function(e) {
+									$(this).popover('toggle');
+									e.stopPropagation();
+								})
+            	});
+            	// Move labels to image header if present
+            	if ($('.image_header').length) $('.image_header').prepend($labels.parent());
+            },
+
+            handleEditionSelect: function() {
+                if (!navigator.cookieEnabled) {
+                    alert('Your browser doesn\'t have cookies enabled. Your edition selection will not be preserved.');
+                    return;
+                }
+                var editionData = $(this).data('edition');
+                var editionSourceUrl;
+                if (editionData == null) {
+                    editionSourceUrl = $('link#parent').attr('href');
+                } else {
+                    editionSourceUrl = $(editionData).attr('resource');
+                }
+                var temp = editionSourceUrl.split('.');
+                var editionNum = parseInt(temp[temp.length-1]);
+                var newUrl;
+                temp.pop();
+                var base_url = temp.join('.');
+                if (editionData == null) {
+                    document.cookie = editionCookieName()+"=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";  // Delete cookie
+                    newUrl = base_url + '/' + scalarapi.model.getCurrentPageNode().slug;
+                } else {
+                    document.cookie = editionCookieName()+"="+(editionNum-1)+"; path=/";  // Cookie (not localStorage) so that PHP can get to it
+                    var decodedCookie = decodeURIComponent(document.cookie);
+                    newUrl = base_url + '.' + editionNum + '/' + scalarapi.model.getCurrentPageNode().slug;
+                }
+                window.open(newUrl,'_self');
+            },
+
             addColophon: function() {
+
+				if (typeof(window['customColophon']) !== 'undefined') {
+					customColophon();
+					return;
+				}
+
+                var decodedCookie = decodeURIComponent(document.cookie);
                 var currentNode = scalarapi.model.getCurrentPageNode();
+                var is_author_or_editor = false;
                 var can_show_versions = ($('.navbar-header .book-title').find('[data-hide-versions="true"]').length) ? false : true;
                 var $level = $('link#user_level');
                 if ($level.length) {
-                	if ('scalar:author' == $level.attr('href').toLowerCase()) can_show_versions = true;
-                	if ('scalar:editor' == $level.attr('href').toLowerCase()) can_show_versions = true;
+                	if ('scalar:author' == $level.attr('href').toLowerCase() || 'scalar:editor' == $level.attr('href').toLowerCase()) {
+                        can_show_versions = true;
+                        is_author_or_editor = true;
+                    }
                 }
                 var $footer = $('#footer');
                 $footer.append('<div id="colophon" class="caption_font"><p id="scalar-credit"></p></div>');
                 var $par = $footer.find('#scalar-credit');
+
+                // if we're in an edition, build edition menu
+                var editionNum = scalarapi.getEdition(document.location.href);
+                var versionNum = scalarapi.getVersionExtension(document.location.href);
+                if (editionNum != -1 && versionNum == '') {
+                    var editions = $('span[typeof="scalar:Edition"]');
+                    var editionList = $('<ul class="dropdown-menu aria-labelledby="edition-dropdown"></ul>');
+                    var editionListItem;
+                    if (is_author_or_editor) {
+                        editionListItem = $('<li><a href="javascript:;">Latest edits</a></li>');
+                        editionListItem.on('click', page.handleEditionSelect);
+                        editionList.append(editionListItem);
+                        editionList.append('<li role="separator" class="divider"></li>');
+                    }
+                    editions.each(function(index) {
+                        var reversedIndex = editions.length - index;
+                        editionListItem = $('<li><a href="javascript:;">'+$(this).find('span[property="dcterms:title"]').text()+'</a></li>');
+                        if (editionNum == reversedIndex) {
+                            editionListItem.addClass('active');
+                        }
+                        editionListItem.find('a').data('edition', this).on('click', page.handleEditionSelect);
+                        editionList.append(editionListItem);
+                    });
+                    var bookURL = $('link#parent').attr('href');
+                    bookURL = bookURL.substr(0, bookURL.length-1);
+                    var currentEditionData = $('span[resource="'+bookURL+'"]');
+                    var currentEditionName = currentEditionData.find('span[property="dcterms:title"]').text();
+                    var editionSelector = $('<div class="edition-selector dropdown"><a id="edition-dropdown" data-target="#" href="#" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">'+currentEditionName+'<span class="caret"></span></a></div>');
+                    editionSelector.append(editionList);
+                    $par.append(editionSelector);
+                    $par.append(' | ');
+                    if (!is_author_or_editor) can_show_versions = false;
+                }
+
                 if (null !== currentNode.current.number) { // Make sure there is a version .. Added by Craig 6 December 2015
-                    $par.append('<a href="' + scalarapi.model.urlPrefix + currentNode.slug + '.' + currentNode.current.number + '" title="Go to permalink">Version ' + currentNode.current.number + '</a> of this ' + currentNode.getDominantScalarType().singular + ', updated ' + new Date(currentNode.current.created).toLocaleDateString() + ' ');
+                    if (can_show_versions) {
+                        $par.append('<a href="' + scalarapi.model.urlPrefix + currentNode.slug + '.' + currentNode.current.number + '" title="Go to permalink">Version ' + currentNode.current.number + '</a> of this ' + currentNode.getDominantScalarType().singular + ', updated ' + new Date(currentNode.current.created).toLocaleDateString() + ' ');
+                    } else {
+                        $par.append('Updated ' + new Date(currentNode.current.created).toLocaleDateString() + ' ');
+                    }
                     if ('undefined' != currentNode.paywall && 1 == parseInt(currentNode.paywall)) $par.append('&nbsp;<span class="glyphicon glyphicon-lock" aria-hidden="true" title="This page is protected by the paywall"></span> ');
                     $par.append(' | ');
-                    if (can_show_versions) $par.append('<a href="' + scalarapi.model.urlPrefix + currentNode.slug + '.versions" title="View all versions">All versions</a> | ');
+                    if (can_show_versions && currentEditionName == null) $par.append('<a href="' + scalarapi.model.urlPrefix + currentNode.slug + '.versions" title="View all versions">All versions</a> | ');
                     $par.append('<a href="' + scalarapi.model.urlPrefix + currentNode.slug + '.meta" title="View metadata for this page">Metadata</a><br />');
                 }
-                $par.append('<a href="http://scalar.usc.edu/scalar"><img src="' + page.options.root_url + '/images/scalar_logo_small.png" width="18" height="16"/></a>');
+                $par.append('<a href="http://scalar.usc.edu/scalar"><img src="' + page.options.root_url + '/images/scalar_logo_small.png" width="18" height="16" alt="Scalar logo"/></a>');
                 $par.append(' Powered by <a href="http://scalar.usc.edu/scalar">Scalar</a> (<a href="https://github.com/anvc/scalar">' + $('link#scalar_version').attr('href').trim() + '</a>) | ');
                 $par.append('<a href="http://scalar.usc.edu/terms-of-service/">Terms of Service</a> | ');
                 $par.append('<a href="http://scalar.usc.edu/privacy-policy/">Privacy Policy</a> | ');
@@ -1337,7 +1408,7 @@
             },
 
             setupScreenedBackground: function() {
-                var screen = $('<div class="bg_screen"><img src="' + page.options.root_url + '/images/1x1white_trans.png" width="100%" height="100%"/></div>').prependTo('body');
+                var screen = $('<div class="bg_screen"><img src="' + page.options.root_url + '/images/1x1white_trans.png" width="100%" height="100%" alt=""/></div>').prependTo('body');
                 screen.css('backgroundImage', $('body').css('backgroundImage'));
                 $('body').css('backgroundImage', 'none');
             },
@@ -1352,11 +1423,14 @@
                     note = notes.eq(i);
                     resource = note.attr('resource');
                     note.wrapInner('<a href="javascript:;" rev="scalar:has_note" resource="' + resource + '"></a>');
-                    note.find('a').click(function(e) {
+                    note.find('a').on('click', function(e) {
                         e.stopPropagation();
                         page.showNote(this);
                     });
-                    note.find('a').unwrap().addClass('texteo_icon texteo_icon_note');
+                    var title = (note.data('show-title') == 'yes') ? true : false;
+                    var desc = (note.data('show-description') == 'yes') ? true : false;
+                    var content = (note.data('show-content') == 'no') ? false : true;
+                    note.find('a').data('show-title', title).data('show-desc', desc).data('show-content', content).unwrap().addClass('texteo_icon texteo_icon_note');
                 }
 
                 $('body').append('<div class="note_viewer caption_font"></div>');
@@ -1365,6 +1439,8 @@
 
             showNote: function(note) {
                 note = $(note);
+                var viewer = $('.note_viewer');
+                viewer.data('show-title', note.data('show-title')).data('show-desc', note.data('show-desc')).data('show-content', note.data('show-content'));
                 if (note.hasClass('media_link')) {
                     $('[rev="scalar:has_note"]').removeClass('media_link');
                     $('.note_viewer').hide();
@@ -1413,11 +1489,18 @@
                 noteViewer.empty();
                 var width = parseInt(noteViewer.css('max-width')) - noteViewer.innerWidth() - 50;
                 if (node != null) {
-                    if (node.current.content != null) {
+                	if (node.current.title != null && noteViewer.data('show-title')) {
+                		$('<div class="title">' + node.current.title + '</div>').appendTo(noteViewer);
+                	}
+                	if (node.current.description != null && noteViewer.data('show-desc')) {
+                		$('<div class="description">' + node.current.description + '</div>').appendTo(noteViewer);
+                	}
+                    if (node.current.content != null && noteViewer.data('show-content')) {
 
                         var height = parseInt(noteViewer.css('max-height')) - noteViewer.innerHeight() - 50;
 
-                        var temp = $('<div>' + node.current.content + '</div>').appendTo(noteViewer);
+                        var temp = $('<div class="content">' + node.current.content + '</div>').appendTo(noteViewer);
+                        if (temp.children('p:last').is(':last-child')) temp.children('p:last').css('margin-bottom','0px');
 
                         $(page.getMediaLinks(temp)).each(function() {
                             if ($(this).hasClass('inline')) {
@@ -1445,12 +1528,13 @@
                             page.addNoteOrAnnotationMedia($(this), parent, width, height);
 
                         });
-                    } else if (node.hasScalarType('media')) {
+                    }
+                    if (node.hasScalarType('media')) {
                         var parent = $('<div class="node_media_' + node.slug + '"></div>').appendTo(noteViewer);
                         var link = $('<a href="' + node.current.sourceFile + '" data-annotations="[]" data-align="center" resource="' + node.slug + '" class="inline"></a>').hide().appendTo(parent);
                         page.addNoteOrAnnotationMedia(link, parent, width, height);
                     }
-                    noteViewer.append('<br/><br/> <a class="noteLink" href="' + scalarapi.model.urlPrefix + node.slug + '">Go to note</a>');
+                    noteViewer.append('<a class="noteLink" href="' + scalarapi.model.urlPrefix + node.slug + '">Go to note</a>');
                 }
             },
 
@@ -1495,6 +1579,20 @@
                 return link;
             },
 
+            makeRelativeImagesAbsolute: function() {
+                var absoluteURLRoot = scalarapi.stripEdition($('link#parent').attr('href'));
+                page.bodyContentImages().each(function() {
+                    if (page.isImageRelative(this)) {
+                        var src = $(this).attr("src");
+                        if (src[0] == "#") {
+                            $(this).attr("src", window.location.href + src);
+                        } else {
+                            $(this).attr("src", absoluteURLRoot + src);
+                        }
+                    }
+                });
+            },
+
             makeRelativeLinksAbsolute: function() {
                 var absoluteURLRoot = $('link#parent').attr('href');
                 page.bodyContentLinks().each(function() {
@@ -1520,7 +1618,21 @@
             isLinkRelative: function(link) {
                 var href = $(link).attr("href");
                 if (href != null) {
-                    if ((href.indexOf("://") == -1) && (href.indexOf("javascript:") != 0)) {
+                    if ((href.indexOf("://") == -1) && (href.indexOf("javascript:") != 0) && (href.indexOf("mailto:") == -1)) {
+                        return true;
+                    }
+                }
+                return false;
+            },
+
+            bodyContentImages: function() {
+                return page.bodyContent().find('img');
+            },
+
+            isImageRelative: function(link) {
+                var src = $(link).attr("src");
+                if (src != null) {
+                    if (src.indexOf("://") == -1) {
                         return true;
                     }
                 }
@@ -1535,31 +1647,45 @@
                 mediaLinks = [];
 
                 $(element).find('a').each(function() {
-
-                    if ((($(this).attr('resource') != null) || // linked media
-                            ($(this).find('[property="art:url"]').length > 0) || // inline media
-                            (($(this).parents('.annotation_of').length > 0) && ($(this).parent('span[property="dcterms:title"]').length > 0)) || // annotated media
-                            (includeWidgets && $(this).data('widget') != undefined)) //self-referential widget
-                        && ($(this).attr('rev') != 'scalar:has_note') && ($(this).attr('data-relation') == null)) {
-                        if ($(this).data('widget') != undefined) {
-                            if (includeWidgets !== true) {
-                                return;
-                            } else {
-                                $(this).addClass('widget_link');
-                            }
+                	var $this = $(this);
+                    if (
+                    (($this.attr('resource') != null) || // linked media
+                    ($this.find('[property="art:url"]').length > 0) || // inline media
+                    (($this.parents('.annotation_of').length > 0) && ($this.parent('span[property="dcterms:title"]').length > 0)) || // annotated media
+                    (includeWidgets && $this.data('widget') != undefined)) // self-referential widget
+                    && ($this.attr('rev') != 'scalar:has_note') && ($this.attr('data-relation') == null) // not a note
+                    ) {
+                        if ($this.data('widget') != undefined) {
+                        	if (includeWidgets !== true) {
+                        		return;
+                        	} else {
+                        		$this.addClass('widget_link');
+                        	}
                         } else {
-                            if ($(this).parents('.widget_slot').length > 0) {
-                                $(this).remove();
-                                return;
-                            }
-                            $(this).addClass('media_link');
+                        	$this.addClass('media_link');
                         }
-                        mediaLinks.push($(this));
+                        mediaLinks.push($this);
+                    } else if ($this.hasClass('inlineNote')) { // inline note
+                    	mediaLinks.push($this);
                     }
                 });
 
                 return mediaLinks;
             },
+
+            annotationHasMessage: function(annotation) {
+              let result = false;
+              if (annotation.body.current.properties['http://purl.org/dc/terms/abstract']) {
+                result = annotation.body.current.properties['http://purl.org/dc/terms/abstract'][0].value;
+              }
+              return result;
+            },
+
+            sendMessage: function(mediaelement, message) {
+          		if (message && mediaelement.view.mediaObjectView.hasFrameLoaded) {
+                mediaelement.sendMessage(message);
+          		}
+          	},
 
             // trigger media playback when links are clicked on
             handleMediaLinkClick: function(e) {
@@ -1576,8 +1702,8 @@
                         // the media if it isn't already playing
                         var annotationURL = $(this).data('targetAnnotation');
                         if (annotationURL != null) {
-
                             mediaelement.seek(mediaelement.model.initialSeekAnnotation);
+                            page.sendMessage(mediaelement, page.annotationHasMessage(mediaelement.model.initialSeekAnnotation));
                             if ((mediaelement.model.mediaSource.contentType != 'document') && (mediaelement.model.mediaSource.contentType != 'image')) {
                                 setTimeout(function() {
                                     if (!mediaelement.is_playing()) {
@@ -1645,6 +1771,48 @@
                     var label_fade_delay = 400;
                     $media_label.show().delay(label_hide_delay).fadeOut(label_fade_delay);
                 }
+            },
+
+            addLensEditor: function() {
+              if ($('.page-lens-editor').length == 0) {
+                var div = $('<div class="page-lens-editor"></div>');
+                page.bodyContent().append(div);
+                div.wrap('<div class="paragraph_wrapper"><div class="body_copy"></div></div>');
+                $.when(
+                  $.getScript(views_uri+'/melons/cantaloupe/js/bootbox.min.js'),
+                  $("<link/>", {
+                     rel: "stylesheet",
+                     type: "text/css",
+                     href: views_uri+"/widgets/edit/content_selector.css"
+                  }).appendTo("head"),
+                  $.getScript(views_uri+'/widgets/edit/jquery.content_selector_bootstrap.js'),
+                  $.Deferred((deferred) => {
+                    $(deferred.resolve);
+                  })
+                ).done(() => {
+                  var visualization = $('.visualization');
+                  if (visualization.length == 0) {
+                    visualization = $('<div id="lens-visualization" class="visualization"><div class="body_copy caption_font">Loading data...</div></div>').appendTo(page.bodyContent());
+                  } else {
+                    visualization.empty();
+                  }
+                  div.ScalarLenses({onLensResults: this.handleLensResults})
+                });
+              }
+            },
+
+            handleLensResults: function(returnedLensData, currentLens) {
+              // always update the visualization type to current since it could be out of date
+              returnedLensData.visualization = currentLens.visualization;
+              if (returnedLensData.visualization) {
+                var visOptions = {
+                    modal: false,
+                    content: 'lens',
+                    lens: returnedLensData
+                };
+                $('#lens-visualization').empty();
+                $('#lens-visualization').scalarvis(visOptions);
+              }
             },
 
             addMediaElements: function() {
@@ -1718,6 +1886,7 @@
                             anno.hasPopupShownHandler = true;
                             var height = null;
                             $('.annotorious-popup').each(function() {
+                              if ($.contains(annotation.element, this)) {
                                 var width = $(this).width();
                                 if (annotation.isMedia) {
                                     var parent = $(this).find('.annotorious-popup-text');
@@ -1725,17 +1894,14 @@
                                     var link = $('<a href="' + node.current.sourceFile + '" data-annotations="[]" data-align="center" resource="' + node.slug + '" class="inline"></a>').hide().appendTo(parent);
                                     page.addNoteOrAnnotationMedia(link, parent, width, height);
                                 } else {
-                                    $(page.getMediaLinks($(this))).each(function() {
+                                    $(page.getMediaLinks($(this), true)).each(function() {
                                         if ($(this).hasClass('inline')) {
                                             $(this).wrap('<div></div>').hide().removeClass('inline');
                                         }
                                     });
-
                                     wrapOrphanParagraphs($(this));
-
                                     $(this).children('p:not(:last-child),div:not(:last-child)').wrap('<div class="paragraph_wrapper"></div>');
-
-                                    $(page.getMediaLinks($(this))).each(function() {
+                                    $(page.getMediaLinks($(this), true)).each(function() {
                                         $(this).attr({
                                             'data-align': '',
                                             'data-size': '',
@@ -1777,6 +1943,7 @@
                                     }
                                     $(this).css('max-width',winwidth-48);
                                 }
+                              }
                             });
                         });
                     }
@@ -1828,6 +1995,8 @@
                             page.mediaCarousel = $('#gallery');
                             var wrapper = $('<div class="carousel-inner" role="listbox"></div>').appendTo(page.mediaCarousel);
 
+                            page.mediaDetails = $.scalarmediadetails($('<div></div>').appendTo('body'));
+
                             n = nodes.length;
                             for (var i = 0; i < n; i++) {
 
@@ -1864,13 +2033,18 @@
                                     }
                                     description = description.replace(new RegExp("\"", "g"), '&quot;');
                                     item.append('<div class="carousel-caption caption_font"><span>' +
-                                        '<a href="' + node.url + '" role="button" data-toggle="popover" data-placement="bottom" data-trigger="hover" data-title="' + node.getDisplayTitle().replace('"', '&quot;') + '" data-content="' + description + '">' + node.getDisplayTitle() + '</a> (' + (i + 1) + '/' + n + ')' +
+                                        '<a href="javascript:;" role="button" data-toggle="popover" data-placement="bottom" data-trigger="hover" data-title="' + node.getDisplayTitle().replace('"', '&quot;') + '" data-content="' + description + '">' + node.getDisplayTitle() + '</a> (' + (i + 1) + '/' + n + ')' +
                                         '</span></div>');
                                 } else {
                                     item.append('<div class="carousel-caption caption_font"><span>' +
-                                        '<a href="' + node.url + '" >' + node.getDisplayTitle() + '</a> (' + (i + 1) + '/' + n + ')' +
+                                        '<a href="javascript:;" >' + node.getDisplayTitle() + '</a> (' + (i + 1) + '/' + n + ')' +
                                         '</span></div>');
                                 }
+                                item.find('a').data('node', node).on('click', function() {
+                                    if ($('.media_details').css('display') == 'none') {
+                                        page.mediaDetails.show($(this).data('node'));
+                                    }
+                                });
 
                                 page.addMediaElementForLink(link, mediaContainer, galleryHeight);
 
@@ -1895,11 +2069,11 @@
                             page.mediaCarousel.carousel({ interval: false });
                             $(mediaLinks).each(function(i) {
                                 $(this).data('index', i);
-                                $(this).click(function(e) {
+                                $(this).on('click', function(e) {
                                     e.preventDefault();
                                     page.mediaCarousel.carousel($(this).data('index'));
                                 });
-                                $(this).click(page.handleMediaLinkClick);
+                                $(this).on('click', page.handleMediaLinkClick);
                             });
 
                             if (isMobile) {
@@ -1927,6 +2101,7 @@
                         case "book_splash":
                         case "versions":
                         case "history":
+                        case "curriculum_explorer":
                             // these views don't get media
                             break;
 
@@ -1952,16 +2127,20 @@
                                 if ($(this).parents('widget_carousel').length > 0) {
                                     return;
                                 }
-                                if ($(this).hasClass('widget_link')) {
+                                if ($(this).hasClass('inlineNote')) {
+                                	page.addInlineNoteElementForLink($(this));
+                                } else if ($(this).hasClass('widget_link')) {
                                     if ($(this).data('slot') !== undefined) {
                                         $(this).data('slot').remove();
                                     }
                                     widgets.handleWidget($(this));
                                 } else {
-                                    if ((($(this).attr('resource') != null) || // linked media
-                                            ($(this).find('[property="art:url"]').length > 0) || // inline media
-                                            (($(this).parents('.annotation_of').length > 0) && ($(this).parent('span[property="dcterms:title"]').length > 0))) // annotated media
-                                        && ($(this).attr('rev') != 'scalar:has_note') && ($(this).attr('data-relation') == null)) {
+                                    if (
+                                    (($(this).attr('resource') != null) || // linked media
+                                    ($(this).find('[property="art:url"]').length > 0) || // inline media
+                                    (($(this).parents('.annotation_of').length > 0) && ($(this).parent('span[property="dcterms:title"]').length > 0))) // annotated media
+                                    && ($(this).attr('rev') != 'scalar:has_note') && ($(this).attr('data-relation') == null))
+                                    {
 
                                         var slot, slotDOMElement, slotMediaElement, count, parent;
 
@@ -1974,11 +2153,11 @@
                                                 $(this).attr('data-size', 'full');
                                                 parent = $(this);
 
-                                                // inline media (subsequent, after page resize)
+                                            // inline media (subsequent, after page resize)
                                             } else if ($(this).attr('href') == currentNode.current.sourceFile) {
                                                 parent = $(this);
 
-                                                // annotated media link (as appears on an annotation page)
+                                            // annotated media link (as appears on an annotation page)
                                             } else {
                                                 var annotatedMedia = currentNode.getRelatedNodes("annotation", "outgoing");
                                                 var i, node, annotationURL,
@@ -2005,7 +2184,7 @@
                                             }
                                             $(this).addClass("resource-added");
 
-                                            // standard media link
+                                        // standard media link
                                         } else {
                                             parent = $(this).closest('.body_copy');
 
@@ -2022,7 +2201,7 @@
                                         }
                                         page.addMediaElementForLink($(this), parent);
 
-                                        $(this).click(page.handleMediaLinkClick);
+                                        $(this).on('click', page.handleMediaLinkClick);
 
                                     }
                                 }
@@ -2097,12 +2276,14 @@
                     // Images can be larger than the window, but still give them a limit so that very long narrow images don't span too long
                     'image': $(window).height() * 1.3,
                     // The default for media should be to limit their size to fit within the bounds of the window
-                    'default': $(window).height() * 0.75,
+                    'default': Math.max($(window).height() * 0.75, 650),
                 };
             },
 
             handleDelayedResize: function() {
-                if ((page.initialMediaLoad === true) && !page.isFullScreen && (document.location.href.indexOf('.annotation_editor') == -1)) {
+              var fullscreenElement = document.fullscreenElement || document.mozFullScreenElement || document.webkitFullscreenElement;
+              page.isFullScreen = (fullscreenElement != null);
+              if ((page.initialMediaLoad === true) && !page.isFullScreen && (document.location.href.indexOf('.annotation_editor') == -1)) {
                     var reload = false;
                     page.orientation = window.orientation;
                     if ($('body').width() <= page.mobileWidth) {
@@ -2123,8 +2304,10 @@
                         $('.annotorious-item, .annotorious-popup').remove();
                         anno.removeAll();
                         page.handleMediaResize();
+                        $('body').trigger('mediaResizeComplete');
                     }
-                }
+                };
+                $('body').trigger('delayedResizeComplete');
             },
 
             handleMediaResize: function() {
@@ -2133,7 +2316,7 @@
 
                 // Regenerate media details view if currently open
                 if ($('.media_details:visible').length == 1) {
-                    $('.media_details:visible').find('[title="Close"]').click();
+                    $('.media_details:visible').find('[title="Close"]').trigger('click');
                     setTimeout(page.mediaDetails.show, 1000);
                 }
                 // remove elements that were added the last time
@@ -2186,7 +2369,7 @@
 
                     var metadata = $('<div class="body_copy additional_metadata caption_font" style="clear: both;"></div>');
                     var button = $('<a class="btn btn-default" aria-expanded="false" aria-controls="additionalMetadata">Additional metadata</a>').appendTo(metadata);
-                    button.click(function() {
+                    button.on('click', function() {
                         var isExpanded = $(this).attr("aria-expanded");
                         if (isExpanded == "false") {
                             $("#additionalMetadata").show();
@@ -2220,9 +2403,9 @@
                     if (resource == null) {  // Links with resource="" are always internal
                         if ('undefined' != typeof(href) && base_url) {
                             if (href.substr(0, 4) == 'http' && href.indexOf(base_url) == -1) { // Is an external link
-                                $link.click(function() {
+                                $link.on('click', function() {
                                     if (target) { // E.g., open in a new tab
-                                        $link.click();
+                                        $link.trigger('click');
                                         return false;
                                     } else {
                                         var link_to = base_url + 'external?link=' + encodeURIComponent($(this).attr('href')) + '&prev=' + encodeURIComponent(document.location.href);
@@ -2284,7 +2467,10 @@
                             map: map,
                             html: contentString,
                             title: title,
-                            icon: src
+                            icon: {
+                		    			url: src,
+                              scaledSize: new google.maps.Size(40,40)
+                		    		}
                         });
                         google.maps.event.addListener(marker, 'click', function() {
                             infoWindow.setContent(this.html);
@@ -2314,7 +2500,7 @@
                 }
 
                 var fontSize = 16,
-                    imageWidth = imageHeight = 45;
+                    imageWidth = imageHeight = 80;
 
                 if (number >= 1000) {
                     fontSize = 11;
@@ -2350,7 +2536,7 @@
                 var g = svg.append('g')
 
                 var path = g.append('path')
-                    .attr('transform', 'matrix(0.03,0,0,0.03,5,6)')
+                    .attr('transform', 'matrix(0.03,0,0,0.03,9,6)')
                     .attr('d', 'M730.94,1839.63C692.174,1649.33 623.824,1490.96 541.037,1344.19C479.63,1235.32 408.493,1134.83 342.673,1029.25C320.701,994.007 301.739,956.774 280.626,920.197C238.41,847.06 204.182,762.262 206.357,652.265C208.482,544.792 239.565,458.581 284.387,388.093C358.106,272.158 481.588,177.104 647.271,152.124C782.737,131.7 909.746,166.206 999.814,218.872C1073.41,261.91 1130.41,319.399 1173.73,387.152C1218.95,457.868 1250.09,541.412 1252.7,650.384C1254.04,706.214 1244.9,757.916 1232.02,800.802C1218.99,844.211 1198.03,880.497 1179.38,919.256C1142.97,994.915 1097.33,1064.24 1051.52,1133.6C915.083,1340.21 787.024,1550.91 730.94,1839.63L730.94,1839.63Z')
                     .attr('fill', 'url(#grad)')
                     .attr('stroke-width', 40)
@@ -2358,14 +2544,14 @@
 
                 if (number != null) {
                     var text = g.append('text')
-                        .attr('dx', 27)
+                        .attr('dx', 31)
                         .attr('dy', 32)
                         .attr('text-anchor', 'middle')
                         .attr('style', 'font-size:' + fontSize + 'px; fill: #000; font-family: Lato, Arial, sans-serif; font-weight: bold')
                         .text(number);
                 } else {
                     var circles = svg.append('circle')
-                        .attr('cx', '27.2')
+                        .attr('cx', '31.2')
                         .attr('cy', '27.2')
                         .attr('r', '5')
                         .style('fill', 'rgb(90,20,16)');
@@ -2414,9 +2600,13 @@
                 var listItems = list.children('li');
                 listItems.sort(function(a, b) {
                     var versionUrl = $(a).find(scalarVersionUrlSelector).attr('href');
-                    var nodeA = scalarapi.getNode(scalarapi.stripVersion(versionUrl));
+                    if (versionUrl != null) {
+                      var nodeA = scalarapi.getNode(scalarapi.stripEditionAndVersion(versionUrl));
+                    }
                     versionUrl = $(b).find(scalarVersionUrlSelector).attr('href');
-                    var nodeB = scalarapi.getNode(scalarapi.stripVersion(versionUrl));
+                    if (versionUrl != null) {
+                      var nodeB = scalarapi.getNode(scalarapi.stripEditionAndVersion(versionUrl));
+                    }
                     if ((nodeA != null) && (nodeB != null)) {
                         var nameA = nodeA.getSortTitle().toLowerCase();
                         var nameB = nodeB.getSortTitle().toLowerCase();
@@ -2431,7 +2621,7 @@
             },
 
             setupGoogleMapsLayout: function() {
-                $('header > span:not').eq(0).before('<div id="google-maps" class="maximized-embed"></div>');
+                $('h1[property="dcterms:title"]').before('<div id="google-maps" class="maximized-embed"></div>');
 
                 // create map
                 var mapOptions = {
@@ -2528,11 +2718,24 @@
                 }
 
                 // add kml layers for each content element
+                var bounds;
                 for (i=0; i<n; i++) {
                     node = contents[i];
                     if (node.current.mediaSource.name == 'KML') {
-                        var kmlLayer = new google.maps.KmlLayer(node.current.sourceFile);
+                        var path = node.current.sourceFile;
+                        if (path.substr(0, 4) != 'http') {
+                            path = scalarapi.model.urlPrefix + path;
+                        }
+                        var kmlLayer = new google.maps.KmlLayer(path);
                         kmlLayer.setMap(map);
+                        google.maps.event.addListener(kmlLayer, "defaultviewport_changed", function() {
+                            if (!bounds) {
+                                bounds = this.getDefaultViewport();
+                            } else {
+                                bounds.union(this.getDefaultViewport());
+                            }
+                            map.fitBounds(bounds);
+                        });
                     }
                 }
 
@@ -2560,10 +2763,10 @@
         page.updateMediaHeightRestrictions();
         page.sortTags();
 
-        $('body').bind('setState', page.handleSetState);
-        $('body').bind('mediaElementMediaLoaded', page.handleMediaElementMetadata);
+        $('body').on('setState', page.handleSetState);
+        $('body').on('mediaElementMediaLoaded', page.handleMediaElementMetadata);
 
-        $(document).bind("mozfullscreenchange webkitfullscreenchange msfullscreenchange webkitbeginfullscreen webkitendfullscreen", function(e) {
+        $(document).on("mozfullscreenchange webkitfullscreenchange msfullscreenchange webkitbeginfullscreen webkitendfullscreen", function(e) {
 
             var fullscreenElement = document.fullscreenElement || document.mozFullScreenElement || document.webkitFullscreenElement;
             page.isFullScreen = (fullscreenElement != null);
@@ -2600,7 +2803,7 @@
 
         $('article').append('<div id="footer" class="caption_font"></div>');
 
-        $('body').bind('delayedResize', page.handleDelayedResize);
+        $('body').on('delayedResize', page.handleDelayedResize);
 
         if ($('body').width() <= page.mobileWidth) {
             page.adaptiveMedia = 'mobile';
@@ -2626,7 +2829,7 @@
                     viewType = currentNode.current.properties['http://scalar.usc.edu/2012/01/scalar-ns#defaultView'][0].value;
                 }
                 if (version != '') {
-                    $('h1[property="dcterms:title"]').append(' (Version ' + parseInt(version) + ')');
+                    $('h1[property="dcterms:title"]').append(' <small>Version ' + parseInt(version) + '</small>');
                 }
             } else {
                 // handle case where the extension specifies a version number to be viewed
@@ -2647,21 +2850,24 @@
             // this prevents scrolling within in the WYSIWYG from locking up on Safari
             if (viewType != 'edit') {
                 page.makeRelativeLinksAbsolute();
+                page.makeRelativeImagesAbsolute();
             }
 
             page.getContainingPathInfo();
-            
-    		var cover_video = function() {  // Have <video> tag mimic background-size:cover
-    			$video = $(this);
-    			var scale_h = parseInt($video.parent().width()) / $video.data('orig_w');
-    			var scale_v = parseInt($video.parent().height()) / $video.data('orig_h');
-    			var scale = scale_h > scale_v ? scale_h : scale_v;
-    			$video.width(scale * $video.data('orig_w'));
-    			$video.height(scale * $video.data('orig_h'));
-        		$video.parent().scrollLeft( ($video.width() - $video.parent().width()) / 2 );
-        		$video.parent().scrollTop( ($video.height() - $video.parent().height()) / 2 );  
-    		}            
-            
+
+        		var cover_video = function() {  // Have <video> tag mimic background-size:cover
+        			$video = $(this);
+        			var scale_h = parseInt($video.parent().parent().width()) / $video.data('orig_w');
+        			var scale_v = parseInt($video.parent().parent().height()) / $video.data('orig_h');
+        			var scale = scale_h > scale_v ? scale_h : scale_v;
+              $video.parent().height($video.parent().parent().height());
+        			$video.width(scale * $video.data('orig_w'));
+        			$video.height(scale * $video.data('orig_h'));
+            	$video.parent().scrollLeft( ($video.width() - $video.parent().width()) * .5 );
+            	$video.parent().scrollTop( ($video.height() - $video.parent().height()) * .5 );
+              $video.show();
+        		}
+
             switch (viewType) {
 
                 case 'splash':
@@ -2690,7 +2896,7 @@
                     		var self = this;
                     		$video.data('orig_w', parseInt($video.get(0).videoWidth));
                     		$video.data('orig_h', parseInt($video.get(0).videoHeight));
-                    		$(window).resize(function() {
+                    		$(window).on('resize', function() {
                     			cover_video.call($video.get(0));
                     		}).trigger('resize');
                     	});
@@ -2709,6 +2915,28 @@
                             next();
                         });
                     }, 200);
+                    // Information about the banner
+                    var parent = $('link#parent').attr('href');
+                    var api_url = null;
+                    if (-1 == banner.indexOf(parent)) {  // External file
+                    	// TODO
+                    } else {  // Local file
+                    	api_url = parent+'rdf/file/'+banner.replace(parent,'')+'?format=json';
+                    }
+                    if (null != api_url) {
+	                    $.getJSON(api_url, function(media_node) {
+	                    	for (var uri in media_node) {
+	                    		if ('undefined' == typeof(media_node[uri]['http://open.vocab.org/terms/versionnumber'])) continue;
+	                    		var url = media_node[uri]['http://purl.org/dc/terms/isVersionOf'][0].value;
+	                    		var title = media_node[uri]['http://purl.org/dc/terms/title'][0].value;
+	                    		//var description = ('undefined'!=typeof(media_node[uri]['http://purl.org/dc/terms/description'])) ? media_node[uri]['http://purl.org/dc/terms/description'][0].value : null;
+	                    		var source = ('undefined'!=typeof(media_node[uri]['http://purl.org/dc/terms/source'])) ? media_node[uri]['http://purl.org/dc/terms/source'][0].value : null;
+	                    		if (-1 != source.indexOf('//')) source = null;  // Is a URL
+	                    		var html = '<div class="citation caption_font"><a href="'+url+'">Background: '+title+''+((null!=source)?' ('+source+')':'')+'</a></div>';
+	                    		$('.title_card').append(html);
+	                    	}
+	                    });
+                    };
                     break;
 
                 case 'gallery':
@@ -2726,6 +2954,7 @@
                     page.addIncomingComments();
                     page.addAdditionalMetadata();
                     page.addExternalLinks();
+                    page.addTKLabels();
                     page.addColophon();
                     page.addNotes();
                     page.addContext();
@@ -2758,14 +2987,14 @@
                     page.addIncomingComments();
                     page.addAdditionalMetadata();
                     page.addExternalLinks();
+                    page.addTKLabels();
                     page.addColophon();
                     page.addNotes();
                     page.addContext();
                     break;
 
                 case 'blank':
-                    $('h1').hide();
-                    // hide continue_to metadata
+                    $('[property="dcterms:title"]').hide();
                     $('[rel="scalar:continue_to"]').each(function() {
                         var href = $(this).attr('href');
                         $('span[resource="' + href + '"]').hide();
@@ -2786,7 +3015,7 @@
                     		var $video = $(this);
                     		$video.data('orig_w', parseInt($video.get(0).videoWidth));
                     		$video.data('orig_h', parseInt($video.get(0).videoHeight));
-                    		$(window).resize(function() {
+                    		$(window).on('resize', function() {
                     			cover_video.call($video.get(0));
                     		}).trigger('resize');
                     	});
@@ -2811,6 +3040,7 @@
                     page.addIncomingComments();
                     page.addAdditionalMetadata();
                     page.addExternalLinks();
+                    page.addTKLabels();
                     page.addColophon();
                     page.addNotes();
                     page.addContext();
@@ -2839,6 +3069,7 @@
                             page.pendingDeferredScripts.GoogleMaps.push(promise);
                             $.when(promise).then($.proxy(function(){
                                 page.setupGoogleMapsLayout();
+                                page.addHeaderPathInfo();
                             },this));
                             break;
 
@@ -2857,73 +3088,226 @@
                                 case "vis":
                                 case "visindex":
                                     visOptions = {
-                                        modal: false,
-                                        content: 'all',
-                                        relations: 'all',
-                                        format: 'grid'
+                                      modal: false,
+                                      content: 'lens',
+                                      lens: {
+                                        "visualization": {
+                                          "type": "grid",
+                                          "options": {}
+                                        },
+                                        "components": [
+                                          {
+                                            "content-selector": {
+                                              "type": "items-by-type",
+                                              "content-type": "all-content"
+                                            },
+                                            "modifiers": [
+                                              {
+                                                "type": "sort",
+                                                "sort-type": "alphabetical",
+                                                "metadata-field": "dcterms:title",
+                                                "sort-order": "ascending"
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      }
                                     }
                                     break;
 
                                 case "vistoc":
                                     visOptions = {
-                                        modal: false,
-                                        content: 'toc',
-                                        relations: 'all',
-                                        format: 'tree'
+                                      modal: false,
+                                      content: 'lens',
+                                      lens: {
+                                        "visualization": {
+                                          "type": "tree",
+                                          "options": {}
+                                        },
+                                        "components": [
+                                          {
+                                            "content-selector": {
+                                              "type": "items-by-type",
+                                              "content-type": "table-of-contents"
+                                            },
+                                            "modifiers": [{
+                                                "type": "filter",
+                                                "subtype": "relationship",
+                                                "content-types": [
+                                                    "all-types"
+                                                ],
+                                                "relationship": "child"
+                                            }]
+                                          }
+                                        ]
+                                      }
                                     }
                                     break;
 
                                 case "visconnections":
                                     visOptions = {
-                                        modal: false,
-                                        content: 'all',
-                                        relations: 'all',
-                                        format: 'force-directed'
+                                      modal: false,
+                                      content: 'lens',
+                                      lens: {
+                                        "visualization": {
+                                          "type": "force-directed",
+                                          "options": {}
+                                        },
+                                        "components": [
+                                          {
+                                            "content-selector": {
+                                              "type": "items-by-type",
+                                              "content-type": "all-content"
+                                            },
+                                            "modifiers": []
+                                          }
+                                        ]
+                                      }
                                     }
                                     break;
 
                                 case "visradial":
                                     visOptions = {
-                                        modal: false,
-                                        content: 'all',
-                                        relations: 'all',
-                                        format: 'radial'
+                                      modal: false,
+                                      content: 'lens',
+                                      lens: {
+                                        "visualization": {
+                                          "type": "radial",
+                                          "options": {}
+                                        },
+                                        "components": [
+                                          {
+                                            "content-selector": {
+                                              "type": "items-by-type",
+                                              "content-type": "all-content"
+                                            },
+                                            "modifiers": []
+                                          }
+                                        ]
+                                      }
                                     }
                                     break;
 
                                 case "vispath":
                                     visOptions = {
-                                        modal: false,
-                                        content: 'current',
-                                        relations: 'path',
-                                        format: 'tree'
+                                      modal: false,
+                                      content: 'lens',
+                                      lens: {
+                                        "visualization": {
+                                          "type": "tree",
+                                          "options": {}
+                                        },
+                                        "components": [
+                                          {
+                                            "content-selector": {
+                                              "type": "specific-items",
+                                              "items": [currentNode.slug]
+                                            },
+                                            "modifiers": [
+                                              {
+                                                "type": "filter",
+                                                "subtype": "relationship",
+                                                "content-types": [
+                                                  "path"
+                                                ],
+                                                "relationship": "child"
+                                              },
+                                              {
+                                                "type": "filter",
+                                                "subtype": "relationship",
+                                                "content-types": [
+                                                  "path"
+                                                ],
+                                                "relationship": "child"
+                                              }
+                                            ]
+                                          }
+                                        ],
+                                      }
                                     }
                                     break;
 
                                 case "vismedia":
                                     visOptions = {
-                                        modal: false,
-                                        content: 'current',
-                                        relations: 'referee',
-                                        format: 'force-directed'
+                                      modal: false,
+                                      content: 'lens',
+                                      lens: {
+                                        "visualization": {
+                                          "type": "force-directed",
+                                          "options": {}
+                                        },
+                                        "components": [
+                                          {
+                                            "content-selector": {
+                                              "type": "specific-items",
+                                              "items": [currentNode.slug]
+                                            },
+                                            "modifiers": [
+                                              {
+                                                "type": "filter",
+                                                "subtype": "relationship",
+                                                "content-types": [
+                                                  "reference"
+                                                ],
+                                                "relationship": "any-relationship"
+                                              }
+                                            ]
+                                          }
+                                        ],
+                                      }
                                     }
                                     break;
 
                                 case "vistag":
                                     visOptions = {
-                                        modal: false,
-                                        content: 'current',
-                                        relations: 'tag',
-                                        format: 'force-directed'
+                                      modal: false,
+                                      content: 'lens',
+                                      lens: {
+                                        "visualization": {
+                                          "type": "force-directed",
+                                          "options": {}
+                                        },
+                                        "components": [
+                                          {
+                                            "content-selector": {
+                                              "type": "specific-items",
+                                              "items": [currentNode.slug]
+                                            },
+                                            "modifiers": [
+                                              {
+                                                "type": "filter",
+                                                "subtype": "relationship",
+                                                "content-types": [
+                                                  "tag"
+                                                ],
+                                                "relationship": "child"
+                                              }
+                                            ]
+                                          }
+                                        ],
+                                      }
                                     }
                                     break;
 
                                 case "tags":
                                     visOptions = {
-                                        modal: false,
-                                        content: 'external',
-                                        relations: 'none',
-                                        format: 'tagcloud'
+                                      modal: false,
+                                      content: 'lens',
+                                      lens: {
+                                        "visualization": {
+                                          "type": "word-cloud",
+                                          "options": {}
+                                        },
+                                        "components": [
+                                          {
+                                            "content-selector": {
+                                              "type": "items-by-type",
+                                              "content-type": "tag"
+                                            },
+                                            "modifiers": []
+                                          }
+                                        ],
+                                      }
                                     }
                                     break;
 
@@ -2954,7 +3338,7 @@
 
                                 relatedNodes.push(node.getRelatedNodes('path', 'outgoing'));
                                 relatedNodes.push(node.getRelatedNodes('tag', 'outgoing'));
-                                relatedNodes.push(node.getRelatedNodes('referee', 'outgoing'));
+                                relatedNodes.push(node.getRelatedNodes('reference', 'outgoing'));
                                 relatedNodes.push(node.getRelatedNodes('annotation', 'outgoing'));
 
                                 var tempdata = {
@@ -2996,7 +3380,7 @@
                                                     url: relNode.sourceFile,
                                                     thumbnail: thumbnail_url
                                                 };
-                                                var mediaType = TL.MediaType(entry.media);
+                                                var mediaType = TL.lookupMediaType(entry.media);
 
                                                 if(mediaType.type=='imageblank' && thumbnail_url != null){
                                                     entry.media.url = thumbnail_url;
@@ -3015,7 +3399,7 @@
                                             }
 
                                             tempdata.events.push(entry);
-                                            
+
                                         }
                                     }
                                 }
@@ -3089,9 +3473,22 @@
                             $("ol.toc").before('<h3 class="heading_font heading_weight">Table of Contents</h3>');
                             break;
 
+                        case "curriculum_explorer":
+                        	$('<link>').appendTo('head').attr({
+                        		type: 'text/css',
+                        	    rel: 'stylesheet',
+                        	    href: $('link#approot').attr('href')+'views/widgets/curriculumexplorer/curriculumexplorer.css'
+                        	});
+                        	$.getScript($('link#approot').attr('href')+'views/widgets/curriculumexplorer/curriculumexplorer.js', function() {
+                            	var node = scalarapi.model.getCurrentPageNode();
+                            	curriculumexplorer(node);
+                        	});
+                        	okToAddExtras = false;
+                        	break;
+
                         case 'visual_path':
                             // original concept for this layout by Alicia Peaker, Bryn Mawr College
-                            $('article').addClass('visual_path');  
+                            $('article').addClass('visual_path');
                             //Find out how long the path is and collect the slugs for each item on the path
                             var pathContents = currentNode.getRelatedNodes("path", "outgoing", "false");
                             // load HTML
@@ -3124,7 +3521,7 @@
                                     		var $video = $(this);
                                     		$video.data('orig_w', parseInt($video.get(0).videoWidth));
                                     		$video.data('orig_h', parseInt($video.get(0).videoHeight));
-                                    		$(window).resize(function() {
+                                    		$(window).on('resize', function() {
                                     			cover_video.call($video.get(0));
                                     		}).trigger('resize');
                                     	});
@@ -3136,9 +3533,9 @@
                                     if (description.length) $("."+slugProxy).css("background-color", "#fff");
                                     $("#"+slugProxy).append('<div style="visibility:hidden; clear:both; height:1px; overflow:hidden;"></div>');
                                 }
-                            }    
-                            okToAddExtras = false;                                      
-                            break;  
+                            }
+                            okToAddExtras = true;
+                            break;
                     }
 
                     page.setupScreenedBackground();
@@ -3170,10 +3567,14 @@
                             showTags: false
                         });
                     }
+                    page.addTKLabels();
                     page.addColophon();
                     if (viewType != 'edit') {
                         page.addContext();
                         page.allowAnyClickToDismissPopovers();
+                    }
+                    if ($("[property|='scalar:isLensOf']").length > 0 && viewType == 'plain') {
+                      page.addLensEditor();
                     }
                     break;
 
@@ -3189,7 +3590,7 @@
 			$( document ).ready( function() {
 				if ( !$.cookie( 'warningMessageDismissed' ) ) {
 					var message = $('<div id="message" style="position: absolute; cursor: pointer; left: 20px; top: 70px; max-width: 400px; padding: 15px; z-index:99999; background-color: #fdcccb;">Warning message</div>').appendTo( 'body' );
-					message.click( function() {
+					message.on('click',  function() {
 						$( this ).hide();
 						$.cookie( 'warningMessageDismissed', true, { path: '/' } );
 					} );
@@ -3199,11 +3600,11 @@
 
             page.handleBook(); // we used to bind this to the return of a loadBook call, but now we can call it immediately
 
-            $('.note_viewer').click(function(e) {
+            $('.note_viewer').on('click', function(e) {
                 e.stopPropagation();
             })
 
-            $('body').click(function() {
+            $('body').on('click', function() {
                 $.each($('.note_viewer'), function() {
                     page.hideNote(this);
                 })
@@ -3221,7 +3622,6 @@
             }
             page.setupScreenedBackground();
         }
-
 
         return page;
 
