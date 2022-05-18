@@ -82,20 +82,10 @@ cite {
 	display: block !important;
 }
 .page {
-/*	background-color: #fff; */
-/*	max-width: 137rem;*/ /* = 104rem * (SR's 1366px Ã· default 1040px) */
-/*	margin: 5rem auto 0 auto;
-	padding: 0 0 7.8rem 0;
-	min-height: calc(100% - 4.8rem); */
 	color: #231f20;
 	font-size: 135%;
 	line-height: 3.2rem;
 	padding: 0rem;
-/*	position: relative;
-	-webkit-transition: opacity .5s ease-in-out;
-	-moz-transition: opacity .5s ease-in-out;
-	-o-transition: opacity .5s ease-in-out;
-	transition: opacity .5s ease-in-out; */
 	max-width: 100%;
 }
 @media screen and (min-width: 320px) and (max-width: 767px) {
@@ -155,7 +145,6 @@ h6.heading_font {
 /***** Scalar Top Navigation *****/
 .navbar { /* navigation background */
 	background-color: #231f20;
-	/*background-color: transparent;*/
 	border: none;
 }
 .navbar .close, #mobileMenuSubmenus .close {
@@ -295,57 +284,13 @@ h6.home__byline {
 	}
 }
 @media screen and (max-width: 319px) {
-/*	h1.home__title {
-		font-size: 2.8rem;
-		padding: 0 .5rem;
-	}
-	h1.home__title span {
-		text-align: center !important;
-		transform: translateX(0) !important;
-	}
-  	h1.home__title span:nth-of-type(1) {
-  		margin-bottom: 0;
-  	}
-	h6.home__byline {
-		bottom: 10vh;
-		*/font-size: 1.4rem !important;
-	}
+
 }
 @media screen and (min-width: 320px) and (max-width: 767px) {
-/*
-	.home * {
-		display: none !important;
-	}
-	#home__bkg {
-		position: relative;
-	}
-	h1.home__title {
-		font-size: 8.6rem;
-		margin-top: 0 !important;
-		padding: 0 4rem;
-		position: relative !important;
-		z-index: 1;
-	}
-	h1.home__title span {
-		text-align: center !important;
-		transform: translateX(0) !important;
-	}
-  	h1.home__title span:nth-of-type(1) {
-  		margin-bottom: 0;
-  	}
-	h6.home__byline {
-		font-size: 1.4rem !important;
-		position: relative !important;
-		bottom: 10vh;
-		z-index: 1;
-	}*/
+
 }
 @media screen and (min-width: 320px) and (max-width: 500px) {
-/*	h1.home__title {
-		font-size: 6.2rem;
-		margin-top: -2.5rem;
-		padding: 0 2rem;
-	}*/
+
 }
 @media screen and (min-width: 768px) and (max-width: 1024px) {
 	h1.home__title {
@@ -371,11 +316,6 @@ h6.home__byline {
 	}
 }
 /* 2016 27" iMac */
-/* @media screen and (min-width: 1500px) and (max-width: 1999px) and (min-resolution: 192dpi) {
-	h1.home__title {
-		background: hsla(200, 100%, 25%, 0.4);
-	}
-} */
 @media screen and (min-width: 2000px) {
 	h1.home__title {
 		font-size: 28rem;
@@ -1205,7 +1145,7 @@ section.relationships {
 	padding-left: 7.2rem;
 	text-align: center;
 }
-/* .relationships .nav__title {display: block;} */
+
 a.nav_btn,
 a.nav_btn.primary {
 	background-color: transparent;
@@ -1297,7 +1237,7 @@ a.citations-link:hover,
 }
 
 a.media_link {
- /* vertical-align: middle !important; */
+
 }
 div.slot {
 	background-color: transparent;
@@ -1341,8 +1281,6 @@ div.popover-content {
 	background-image: none !important;
 }
 div.body_copy {
-/*	margin-left: auto !important;
-	margin-right: auto !important;*/
 	margin: 0 !important;
 	padding: 0 !important;
 	text-align: center;
@@ -1563,17 +1501,6 @@ a.texteo_icon.texteo_icon_note {
 	font-style: normal !important;
 	font-weight: 800 !important;
 	padding-left: 0;}
-/*a.footnote--scroll {
-	color: #3B6D44;
-	cursor: pointer;
-	font-family: 'adobe-caslon-pro', Georgia, serif !important;
-	font-size: 70% !important;
-	font-style: normal !important;
-	font-weight: 800 !important;
-	position: relative;
-	top: -0.4em;
-	vertical-align: baseline;
-}*/
 .footnotes {
 	text-align: left;}
 .paragraph_wrapper ul > li.footnote {
@@ -1658,11 +1585,7 @@ button.caption__button:focus {
 
 
 /***** Carousel Widget *****/
-/*.carousel-caption {
-	right: 0 !important;
-	bottom: 0;
-	left: 0 !important;
-}*/
+
 /***** End Carousel Widget *****/
 
 
@@ -1763,19 +1686,6 @@ button.caption__button:focus {
 	align-items: center;
 	justify-content: space-around;
 }
-/* a.further-insights {
-	background-color: #3B6D44;
-	color: #fff;
-	padding: 1.5rem;
-	text-align: center;
-	width: 100%;
-}
-a.further-insights:hover {
-	background-color: #FCBD7A;
-	color: #231F20;
-	text-decoration: none;
-	transition: .2s;
-} */
 .further-insights-wrapper {
 	display: flex;
 }
