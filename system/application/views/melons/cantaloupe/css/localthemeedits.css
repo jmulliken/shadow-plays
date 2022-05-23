@@ -1595,13 +1595,36 @@ button.caption__button:focus {
 	margin-left: auto;
 	width: 912px;
 }
-.simulation h4 {
-	text-align: left;
-}
 @media screen and (min-width: 320px) and (max-width: 767px) {
 	.simulation {
 		display: none;
 	}
+}
+.simulation h4 {
+	text-align: left;
+}
+body.parent-simulations .bg_screen {
+	display: none;
+}
+body.parent-simulations div.caption_font.path-breadcrumb,
+body.parent-simulations div.caption_font.path-breadcrumb > a {
+	color: #fff;
+}
+body.parent-simulations h1.heading_font.heading_weight.clearboth {
+	line-height: 1.5 !important; padding-top: 1rem !important;
+}
+body.parent-simulations h1.heading_font.heading_weight.clearboth span.heading__simulation {
+	color: #fff; display: none;
+}
+body.parent-simulations h1.heading_font.heading_weight.clearboth span.title__simulation {
+	color: #fcbd7a; display: block;
+}
+body.parent-simulations section.relationships p.container {
+	position: relative; max-width: 100%;
+}
+body.parent-simulations section.relationships p.container a.continue_btn.nav_btn.primary span.heading__simulation,
+body.parent-simulations section.relationships p.container a.continue_btn.nav_btn.primary span.title__simulation {
+	display: inline-block;
 }
 /****** End Embedded Simulations *****/
 
